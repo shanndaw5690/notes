@@ -1,0 +1,97 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+# https://db.rstudio.com/
+
+```{r}
+install.packages("dplyr")
+install.packages("odbc")
+install.packages("dbplyr")
+install.packages("DBI")
+```
+
+```{r}
+library(DBI)
+
+con <- dbConnect(odbc::odbc(),
+    driver = "{/usr/local/lib/libtdsodbc.so}",
+    database = rstudioapi::askForPassword("Database"),
+    uid = rstudioapi::askForPassword("User"),
+    pwd = rstudioapi::askForPassword("Password"),
+    server = rstudioapi::askForPassword("Server"),
+    port = 1433)
+```
+
+```{sql, connection = 'con'}
+SELECT TOP 100 * from applications
+```
+
+```{r}
+dbListTables(con)
+```
+
+## dplyr
+```{r, echo = FALSE}
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(dbplyr)
+})
+```
+
+```{r}
+applications <- tbl(con, "applications")
+head(applications)
+```
+
+### SQL Translation
+```{r}
+show_query(head(applications))
+```
+
+### Piped
+```{r}
+applications %>%
+    filter(StatusId = 21) %>%
+    select(Id, StatusId, ApplicationPurposeId)
+```
+
+```{r}
+show_query(
+    sql_mtcars %>%
+    filter(disp >= 200) %>%
+    select(mpg, cyl)
+)
+```
+
+### Collect
+```{r}
+library(ggplot2)
+
+sql_mtcars %>%
+    select(mpg, wt) %>%
+    filter(mpg >= 18, wt > 2) %>%
+    collect() %>%
+    ggplot() +
+    geom_point(aes(x = mpg, y = wt))
+```
+
+# JOINS
+
+```{r}
+mssql_flights <- tbl(con, "flights")
+```
+
+```{r}
+mssql_flights %>%
+  left_join(mssql_airports, by = c("origin" = "name")) %>%
+  group_by(origin) %>%
+  summarise(flight = n(),
+            avg_dep_delay = mean(dep_delay),
+            max_dep_delay = max(dep_delay)
+            )
+  
+```
